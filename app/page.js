@@ -3,15 +3,21 @@
 import { useState } from "react";
 import { Calendar, Printer, Shield, Wifi } from "lucide-react";
 
-// Data Tim SIMRS & Jaringan
-const simrsMembers = [
-  { name: "Viviani Rosmala Dewi", phone: "082340650647" },
-  { name: "Anna Mawaddah", phone: "085337262947" },
-  { name: "Riskia Annisa", phone: "082341959185" },
+// Data Tim SIMRS (Dipisah Pria & Wanita)
+const simrsMaleMembers = [
   { name: "Bagus Risqi Martono", phone: "081339668877" },
   { name: "Muhammad Dhafa Maulana", phone: "087855893156" },
   { name: "Muhammad Athallariq Wiratama", phone: "082342134354" },
 ];
+
+const simrsFemaleMembers = [
+  { name: "Viviani Rosmala Dewi", phone: "082340650647" },
+  { name: "Anna Mawaddah", phone: "085337262947" },
+  { name: "Riskia Annisa", phone: "082341959185" },
+];
+
+// Gabungan seluruh anggota SIMRS untuk tampilan tabel
+const simrsMembers = [...simrsFemaleMembers, ...simrsMaleMembers];
 
 const jaringanMembers = [
   { name: "Ivandi Shaputra", phone: "0818242029" },
@@ -62,7 +68,7 @@ export default function ScheduleMatrixPage() {
     const dateObj = new Date(year, month - 1, d);
     const dayOfWeek = dateObj.getDay();
 
-    // 1. Shift PJ Malam Standby (Setiap hari)
+    // 1. Shift PJ Malam Standby (Setiap hari - Tetap berlaku untuk semua anggota SIMRS)
     const pjS = simrsMembers[simrsPJIdx % simrsMembers.length].name;
     const pjJ = jaringanMembers[jarPJIdx % jaringanMembers.length].name;
     scheduleMap[pjS][d] = "A";
@@ -72,7 +78,8 @@ export default function ScheduleMatrixPage() {
 
     // 2. Piket Sabtu & Libur Jumat Kompensasi
     if (dayOfWeek === 6) { // Sabtu
-      const pS = simrsMembers[simrsPiketIdx % simrsMembers.length].name;
+      // Piket Sabtu SIMRS HANYA berputar di simrsMaleMembers (Pria)
+      const pS = simrsMaleMembers[simrsPiketIdx % simrsMaleMembers.length].name;
       const pJ = jaringanMembers[jarPiketIdx % jaringanMembers.length].name;
       simrsPiketIdx++;
       jarPiketIdx++;
@@ -198,9 +205,8 @@ export default function ScheduleMatrixPage() {
                   {daysArray.map((d) => (
                     <th
                       key={d.dayNum}
-                      className={`p-1 border-r border-emerald-800/50 font-bold ${
-                        d.isSunday ? "bg-rose-900 text-rose-200" : ""
-                      }`}
+                      className={`p-1 border-r border-emerald-800/50 font-bold ${d.isSunday ? "bg-rose-900 text-rose-200" : ""
+                        }`}
                     >
                       {d.dayNum}
                     </th>
@@ -218,9 +224,8 @@ export default function ScheduleMatrixPage() {
                   {daysArray.map((d) => (
                     <th
                       key={d.dayNum}
-                      className={`p-0.5 border-r border-emerald-700 font-semibold ${
-                        d.isSunday ? "text-rose-300 bg-rose-950/40" : ""
-                      }`}
+                      className={`p-0.5 border-r border-emerald-700 font-semibold ${d.isSunday ? "text-rose-300 bg-rose-950/40" : ""
+                        }`}
                     >
                       {d.initial}
                     </th>
@@ -244,9 +249,8 @@ export default function ScheduleMatrixPage() {
                   return (
                     <tr
                       key={m.name}
-                      className={`border-b border-slate-200 hover:bg-emerald-50/50 transition-colors ${
-                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                      }`}
+                      className={`border-b border-slate-200 hover:bg-emerald-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                        }`}
                     >
                       <td className="p-1 text-left pl-3 font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
                         {m.name}
@@ -256,9 +260,8 @@ export default function ScheduleMatrixPage() {
                         return (
                           <td
                             key={d.dayNum}
-                            className={`p-0.5 border-r border-slate-200/80 ${
-                              d.isSunday ? "bg-rose-50/40" : ""
-                            }`}
+                            className={`p-0.5 border-r border-slate-200/80 ${d.isSunday ? "bg-rose-50/40" : ""
+                              }`}
                           >
                             {code === "P" && (
                               <span className="inline-flex items-center justify-center w-5 h-5 bg-yellow-500 text-white font-bold rounded text-[10px] shadow-sm print:w-3.5 print:h-3.5 print:text-[7px]">
@@ -297,9 +300,8 @@ export default function ScheduleMatrixPage() {
                   return (
                     <tr
                       key={m.name}
-                      className={`border-b border-slate-200 hover:bg-teal-50/50 transition-colors ${
-                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                      }`}
+                      className={`border-b border-slate-200 hover:bg-teal-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                        }`}
                     >
                       <td className="p-1 text-left pl-3 font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
                         {m.name}
@@ -309,9 +311,8 @@ export default function ScheduleMatrixPage() {
                         return (
                           <td
                             key={d.dayNum}
-                            className={`p-0.5 border-r border-slate-200/80 ${
-                              d.isSunday ? "bg-rose-50/40" : ""
-                            }`}
+                            className={`p-0.5 border-r border-slate-200/80 ${d.isSunday ? "bg-rose-50/40" : ""
+                              }`}
                           >
                             {code === "P" && (
                               <span className="inline-flex items-center justify-center w-5 h-5 bg-yellow-500 text-white font-bold rounded text-[10px] shadow-sm print:w-3.5 print:h-3.5 print:text-[7px]">
