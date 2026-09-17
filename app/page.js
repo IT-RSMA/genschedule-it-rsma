@@ -344,7 +344,7 @@ export default function ScheduleMatrixPage() {
 
         {/* Catatan / Keterangan Tambahan */}
         <div className="mt-4 p-3 bg-white border border-emerald-200 rounded-xl text-base text-slate-600 grid grid-cols-1 md:grid-cols-3 gap-2 print:mt-2 print:p-1.5 print:text-[8px] print:rounded-lg">
-          <div><b className="text-yellow-500">P = Piket Sabtu:</b> Bertugas jam 07:00 - 16:00 WITA</div>
+          <div><b className="text-yellow-500">P = Piket Sabtu:</b> jam 07:00 - 16:00 WITA</div>
           <div><b className="text-rose-700">L = Libur Jumat:</b> Piket Sabtu</div>
           <div><b className="text-emerald-600">A = PJ:</b> On-call jam 16:00 - 07:00 WITA</div>
         </div>
