@@ -125,7 +125,7 @@ export default function ScheduleMatrix() {
             </div>
             <div>
               <h1 className="text-lg font-bold">Jadwal IT RSMA</h1>
-              <p className="text-xs text-emerald-200">Laporan Penjadwalan Matriks Bulanan</p>
+              <p className="text-xs text-emerald-200">Laporan Penjadwalan Bulanan</p>
             </div>
           </div>
 
@@ -141,7 +141,7 @@ export default function ScheduleMatrix() {
               className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold px-4 py-2 rounded-lg transition-all text-sm shadow cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>Cetak / PDF Matrix</span>
+              <span>Cetak PDF</span>
             </button>
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function ScheduleMatrix() {
                 JADWAL KERJA, PIKET & LIBUR IT RSMA
               </h1>
               <p className="text-xs text-emerald-700 font-medium print:text-[9px]">
-                Periode Bulan: <span className="font-bold">{selectedMonth}</span> | Jam Operasional Reguler: Senin - Jumat (07:00 - 16:00 WITA)
+                Periode Bulan: <span className="font-bold">{selectedMonth}</span> | Jam Operasional: Senin - Jumat (07:00 - 16:00 WITA)
               </p>
             </div>
 
@@ -324,7 +324,7 @@ export default function ScheduleMatrix() {
         <div className="mt-4 p-3 bg-white border border-emerald-200 rounded-xl text-base text-slate-600 grid grid-cols-1 md:grid-cols-3 gap-2 print:mt-2 print:p-1.5 print:text-[8px] print:rounded-lg">
           <div><b className="text-yellow-500">P = Piket Sabtu:</b> 07:00 - 16:00 WITA</div>
           <div><b className="text-rose-700">L = Libur Jumat:</b> Piket Sabtu</div>
-          <div><b className="text-emerald-600">A = PJ:</b> On-call 16:00 - 07:00 WITA | On Call minggu dari 07:00 WITA</div>
+          <div><b className="text-emerald-600">A = On-call:</b> 16:00 - 07:00 WITA | Hari Minggu dari 07:00 WITA</div>
         </div>
       </main>
     </div>
