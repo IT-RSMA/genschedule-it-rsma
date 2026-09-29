@@ -2,27 +2,47 @@
 
 @media print {
   @page {
-    /* Mengatur ukuran kertas ke F4 Landscape (215mm x 330mm) */
+    /* Ukuran Kertas F4 Landscape (330mm x 215mm) */
     size: 330mm 215mm;
-    margin: 3mm;
+    margin: 0;
+    /* Menghilangkan margin bawaan browser & tulisan Netlify/URL */
   }
 
+  html,
   body {
+    width: 330mm !important;
+    height: 215mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    /* Menaikkan skala konten agar memenuhi kertas */
-    zoom: 120%;
+    overflow: hidden !important;
   }
 
-  /* Memastikan tabel memanfaatkan lebar maksimal */
-  main {
-    max-width: 100% !important;
-    width: 100% !important;
-    padding: 0 !important;
-  }
-
+  /* Sembunyikan Header Navigasi / Tombol Cetak */
   .no-print {
     display: none !important;
+  }
+
+  /* Paksa area konten memenuhi kertas F4 secara presisi */
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8mm 10mm !important;
+    /* Jarak aman tepi kertas */
+    box-sizing: border-box !important;
+  }
+
+  /* Optimasi Tabel agar Melebar Penuh */
+  table {
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  th,
+  td {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
   }
 }
