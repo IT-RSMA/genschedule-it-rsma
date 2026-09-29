@@ -6,9 +6,9 @@ import { Calendar, Printer, Shield, Wifi } from "lucide-react";
 
 // Data Tim SIMRS (Dipisah Pria & Wanita)
 const simrsMaleMembers = [
+  { name: "Muhammad Athallariq Wiratama", phone: "082342134354" },
   { name: "Bagus Risqi Martono", phone: "081339668877" },
   { name: "Muhammad Dhafa Maulana", phone: "087855893156" },
-  { name: "Muhammad Athallariq Wiratama", phone: "082342134354" },
 ];
 
 const simrsFemaleMembers = [
@@ -23,9 +23,10 @@ const simrsMembers = [...simrsFemaleMembers, ...simrsMaleMembers];
 // Data Tim Jaringan
 const jaringanMembers = [
   { name: "Ivandi Shaputra", phone: "0818242029" }, // Kepala Ruangan
+  { name: "Imanollah", phone: "087754339509" },
   { name: "Andi Ardiansyah", phone: "082340110248" },
   { name: "Sahipuddin", phone: "081723376675" },
-  { name: "Imanollah", phone: "087754339509" },
+
 ];
 
 // Daftar Anggota Jaringan yang mengikuti rotasi Piket Sabtu (Ivandi Dikecualikan)
