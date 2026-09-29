@@ -19,12 +19,18 @@ const simrsFemaleMembers = [
 // Gabungan seluruh anggota SIMRS untuk tampilan tabel
 const simrsMembers = [...simrsFemaleMembers, ...simrsMaleMembers];
 
+// Data Tim Jaringan
 const jaringanMembers = [
-  { name: "Ivandi Shaputra", phone: "0818242029" },
+  { name: "Ivandi Shaputra", phone: "0818242029" }, // Kepala Ruangan
   { name: "Andi Ardiansyah", phone: "082340110248" },
   { name: "Sahipuddin", phone: "081723376675" },
   { name: "Imanollah", phone: "087754339509" },
 ];
+
+// Daftar Anggota Jaringan yang mengikuti rotasi Piket Sabtu (Ivandi Dikecualikan)
+const jaringanPiketMembers = jaringanMembers.filter(
+  (m) => m.name !== "Ivandi Shaputra"
+);
 
 const dayInitials = ["M", "S", "S", "R", "K", "J", "S"]; // 0: Miu, 1: Sen, 2: Sel, 3: Rab, 4: Kam, 5: Jum, 6: Sab
 
@@ -68,7 +74,7 @@ export default function ScheduleMatrixPage() {
     const dateObj = new Date(year, month - 1, d);
     const dayOfWeek = dateObj.getDay();
 
-    // 1. Shift PJ Malam Standby (Setiap hari - Tetap berlaku untuk semua anggota SIMRS)
+    // 1. Shift PJ Malam Standby (Setiap hari - Tetap berputar untuk semua staf)
     const pjS = simrsMembers[simrsPJIdx % simrsMembers.length].name;
     const pjJ = jaringanMembers[jarPJIdx % jaringanMembers.length].name;
     scheduleMap[pjS][d] = "A";
@@ -78,9 +84,12 @@ export default function ScheduleMatrixPage() {
 
     // 2. Piket Sabtu & Libur Jumat Kompensasi
     if (dayOfWeek === 6) { // Sabtu
-      // Piket Sabtu SIMRS HANYA berputar di simrsMaleMembers (Pria)
+      // Piket SIMRS: Hanya anggota Pria (Bagus, Dhafa, Athallariq)
       const pS = simrsMaleMembers[simrsPiketIdx % simrsMaleMembers.length].name;
-      const pJ = jaringanMembers[jarPiketIdx % jaringanMembers.length].name;
+
+      // Piket Jaringan: Kecuali Ivandi Shaputra (Hanya Andi, Sahipuddin, Imanollah)
+      const pJ = jaringanPiketMembers[jarPiketIdx % jaringanPiketMembers.length].name;
+
       simrsPiketIdx++;
       jarPiketIdx++;
 
@@ -304,7 +313,7 @@ export default function ScheduleMatrixPage() {
                         }`}
                     >
                       <td className="p-1 text-left pl-3 font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
-                        {m.name}
+                        {m.name} {m.name === "Ivandi Shaputra" && "(Karu)"}
                       </td>
                       {daysArray.map((d) => {
                         const code = scheduleMap[m.name][d.dayNum];
@@ -346,7 +355,7 @@ export default function ScheduleMatrixPage() {
         <div className="mt-4 p-3 bg-white border border-emerald-200 rounded-xl text-base text-slate-600 grid grid-cols-1 md:grid-cols-3 gap-2 print:mt-2 print:p-1.5 print:text-[8px] print:rounded-lg">
           <div><b className="text-yellow-500">P = Piket Sabtu:</b> 07:00 - 16:00 WITA</div>
           <div><b className="text-rose-700">L = Libur Jumat:</b> Piket Sabtu</div>
-          <div><b className="text-emerald-600">A = PJ:</b> On-call 16:00 - 07:00 WITA</div>
+          <div><b className="text-emerald-600">A = PJ:</b> On-call 16:00 - 07:00 WITA | On Call minggu dari 07:00 WITA </div>
         </div>
       </main>
     </div>
