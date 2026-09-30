@@ -1,8 +1,7 @@
-'use client';
+"use client";
 
 import { useState } from "react";
 import { Calendar, Printer, Shield, Wifi } from "lucide-react";
-
 
 // Data Tim SIMRS (Dipisah Pria & Wanita)
 const simrsMaleMembers = [
@@ -26,7 +25,6 @@ const jaringanMembers = [
   { name: "Imanollah", phone: "087754339509" },
   { name: "Andi Ardiansyah", phone: "082340110248" },
   { name: "Sahipuddin", phone: "081723376675" },
-
 ];
 
 // Daftar Anggota Jaringan yang mengikuti rotasi Piket Sabtu (Ivandi Dikecualikan)
@@ -233,8 +231,13 @@ export default function ScheduleMatrix() {
                       key={m.name}
                       className={`border-b border-slate-200 hover:bg-emerald-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}
                     >
-                      <td className="p-1 text-left pl-3 font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
-                        {m.name}
+                      <td className="p-1 text-left pl-3 border-r border-slate-200 whitespace-nowrap">
+                        <div className="font-semibold text-slate-800 leading-tight">
+                          {m.name}
+                        </div>
+                        <div className="text-[9px] text-slate-500 font-normal leading-none mt-0.5 print:text-[7px]">
+                          {m.phone}
+                        </div>
                       </td>
                       {daysArray.map((d) => {
                         const code = scheduleMap[m.name][d.dayNum];
@@ -282,8 +285,13 @@ export default function ScheduleMatrix() {
                       key={m.name}
                       className={`border-b border-slate-200 hover:bg-teal-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}
                     >
-                      <td className="p-1 text-left pl-3 font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
-                        {m.name} {m.name === "Ivandi Shaputra" && "(Karu)"}
+                      <td className="p-1 text-left pl-3 border-r border-slate-200 whitespace-nowrap">
+                        <div className="font-semibold text-slate-800 leading-tight">
+                          {m.name} {m.name === "Ivandi Shaputra" && "(Karu)"}
+                        </div>
+                        <div className="text-[9px] text-slate-500 font-normal leading-none mt-0.5 print:text-[7px]">
+                          {m.phone}
+                        </div>
                       </td>
                       {daysArray.map((d) => {
                         const code = scheduleMap[m.name][d.dayNum];
