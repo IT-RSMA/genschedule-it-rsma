@@ -70,7 +70,7 @@ export default function ScheduleMatrix() {
     scheduleMap[m.name] = {};
   });
 
-  // STEP 1: Plot Piket Sabtu & Libur Jumat Kompensasi Terlebih Dahulu
+  // STEP 1: Plot Piket Sabtu & Libur Jumat Kompensasi
   for (let d = 1; d <= daysInMonth; d++) {
     const dateObj = new Date(year, month - 1, d);
     const dayOfWeek = dateObj.getDay();
@@ -92,31 +92,41 @@ export default function ScheduleMatrix() {
     }
   }
 
-  // STEP 2: Plot On Call Standby (A) secara adil & merata tanpa membebani Karu
+  // STEP 2: Plot On Call Standby (A) dengan Penyesuaian Khusus Tgl 1 & 2
   for (let d = 1; d <= daysInMonth; d++) {
-    // 1. Tim SIMRS
+    // --- 1. TIM SIMRS ---
     for (let attempts = 0; attempts < simrsMembers.length; attempts++) {
       const candidateIndex = (simrsPJIdx + attempts) % simrsMembers.length;
       const candidateName = simrsMembers[candidateIndex].name;
 
-      // Jika candidate tidak sedang Libur (L) atau Piket (P)
       if (!scheduleMap[candidateName][d]) {
         scheduleMap[candidateName][d] = "A";
-        simrsPJIdx = candidateIndex + 1; // Lanjutkan rotasi berikutnya dari posisi ini
+        simrsPJIdx = candidateIndex + 1;
         break;
       }
     }
 
-    // 2. Tim Jaringan
-    for (let attempts = 0; attempts < jaringanMembers.length; attempts++) {
-      const candidateIndex = (jarPJIdx + attempts) % jaringanMembers.length;
-      const candidateName = jaringanMembers[candidateIndex].name;
+    // --- 2. TIM JARINGAN ---
+    if (d === 1) {
+      // OVERRIDE TANGGAL 1: Imanollah On Call
+      scheduleMap["Imanollah"][d] = "A";
+      // Set posisi rotasi berikutnya agar mulai dari Andi Ardiansyah
+      const idxAndi = jaringanMembers.findIndex((m) => m.name === "Andi Ardiansyah");
+      jarPJIdx = idxAndi;
+    } else if (d === 2) {
+      // OVERRIDE TANGGAL 2: Ivandi Shaputra On Call (Backup Libur Jumat Imanollah)
+      scheduleMap["Ivandi Shaputra"][d] = "A";
+    } else {
+      // ROTASI NORMAL UNTUK TANGGAL 3 KE ATAS
+      for (let attempts = 0; attempts < jaringanMembers.length; attempts++) {
+        const candidateIndex = (jarPJIdx + attempts) % jaringanMembers.length;
+        const candidateName = jaringanMembers[candidateIndex].name;
 
-      // Jika candidate tidak sedang Libur (L) atau Piket (P)
-      if (!scheduleMap[candidateName][d]) {
-        scheduleMap[candidateName][d] = "A";
-        jarPJIdx = candidateIndex + 1; // Lanjutkan rotasi berikutnya dari posisi ini
-        break;
+        if (!scheduleMap[candidateName][d]) {
+          scheduleMap[candidateName][d] = "A";
+          jarPJIdx = candidateIndex + 1;
+          break;
+        }
       }
     }
   }
