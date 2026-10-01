@@ -58,7 +58,7 @@ export default function ScheduleMatrix() {
     };
   });
 
-  // Generasi Jadwal berdasarkan Logika
+  // Indeks Rotasi Global
   let simrsPiketIdx = 0;
   let jarPiketIdx = 0;
   let simrsPJIdx = 0;
@@ -70,20 +70,12 @@ export default function ScheduleMatrix() {
     scheduleMap[m.name] = {};
   });
 
+  // STEP 1: Plot Piket Sabtu & Libur Jumat Kompensasi Terlebih Dahulu
   for (let d = 1; d <= daysInMonth; d++) {
     const dateObj = new Date(year, month - 1, d);
     const dayOfWeek = dateObj.getDay();
 
-    // 1. Shift PJ Malam Standby
-    const pjS = simrsMembers[simrsPJIdx % simrsMembers.length].name;
-    const pjJ = jaringanMembers[jarPJIdx % jaringanMembers.length].name;
-    scheduleMap[pjS][d] = "A";
-    scheduleMap[pjJ][d] = "A";
-    simrsPJIdx++;
-    jarPJIdx++;
-
-    // 2. Piket Sabtu & Libur Jumat Kompensasi
-    if (dayOfWeek === 6) {
+    if (dayOfWeek === 6) { // Hari Sabtu
       const pS = simrsMaleMembers[simrsPiketIdx % simrsMaleMembers.length].name;
       const pJ = jaringanPiketMembers[jarPiketIdx % jaringanPiketMembers.length].name;
 
@@ -93,9 +85,38 @@ export default function ScheduleMatrix() {
       scheduleMap[pS][d] = "P";
       scheduleMap[pJ][d] = "P";
 
-      if (d > 1) {
+      if (d > 1) { // Libur Kompensasi di Hari Jumat sebelumnya
         scheduleMap[pS][d - 1] = "L";
         scheduleMap[pJ][d - 1] = "L";
+      }
+    }
+  }
+
+  // STEP 2: Plot On Call Standby (A) secara adil & merata tanpa membebani Karu
+  for (let d = 1; d <= daysInMonth; d++) {
+    // 1. Tim SIMRS
+    for (let attempts = 0; attempts < simrsMembers.length; attempts++) {
+      const candidateIndex = (simrsPJIdx + attempts) % simrsMembers.length;
+      const candidateName = simrsMembers[candidateIndex].name;
+
+      // Jika candidate tidak sedang Libur (L) atau Piket (P)
+      if (!scheduleMap[candidateName][d]) {
+        scheduleMap[candidateName][d] = "A";
+        simrsPJIdx = candidateIndex + 1; // Lanjutkan rotasi berikutnya dari posisi ini
+        break;
+      }
+    }
+
+    // 2. Tim Jaringan
+    for (let attempts = 0; attempts < jaringanMembers.length; attempts++) {
+      const candidateIndex = (jarPJIdx + attempts) % jaringanMembers.length;
+      const candidateName = jaringanMembers[candidateIndex].name;
+
+      // Jika candidate tidak sedang Libur (L) atau Piket (P)
+      if (!scheduleMap[candidateName][d]) {
+        scheduleMap[candidateName][d] = "A";
+        jarPJIdx = candidateIndex + 1; // Lanjutkan rotasi berikutnya dari posisi ini
+        break;
       }
     }
   }
