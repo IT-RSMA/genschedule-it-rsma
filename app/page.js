@@ -23,8 +23,8 @@ const simrsMembers = [...simrsFemaleMembers, ...simrsMaleMembers];
 const jaringanMembers = [
   { name: "Ivandi Shaputra", phone: "0818242029" }, // Kepala Ruangan
   { name: "Imanollah", phone: "087754339509" },
-  { name: "Andi Ardiansyah", phone: "082340110248" },
   { name: "Sahipuddin", phone: "081723376675" },
+  { name: "Andi Ardiansyah", phone: "082340110248" },
 ];
 
 // Daftar Anggota Jaringan yang mengikuti rotasi Piket Sabtu (Ivandi Dikecualikan)
@@ -64,8 +64,11 @@ export default function ScheduleMatrix() {
   let simrsPJIdx = 0;
   let jarPJIdx = 0;
 
-  // Struktur penampung: scheduleMap[nama][tgl] = 'P' | 'L' | 'A'
+  // Structure: scheduleMap[nama][tgl] = 'P' | 'L' | 'A'
   const scheduleMap = {};
+  // Tracking siapa saja yang kena Piket Sabtu minggu itu
+  const piketDutyMembers = new Set();
+
   [...simrsMembers, ...jaringanMembers].forEach((m) => {
     scheduleMap[m.name] = {};
   });
@@ -89,17 +92,30 @@ export default function ScheduleMatrix() {
         scheduleMap[pS][d - 1] = "L";
         scheduleMap[pJ][d - 1] = "L";
       }
+
+      // Catat tanggal Jumat, Sabtu, Minggu untuk diproteksi dari On Call (A)
+      piketDutyMembers.add(`${pS}_${d - 1}`); // Jumat
+      piketDutyMembers.add(`${pS}_${d}`);     // Sabtu
+      piketDutyMembers.add(`${pS}_${d + 1}`); // Minggu
+
+      piketDutyMembers.add(`${pJ}_${d - 1}`); // Jumat
+      piketDutyMembers.add(`${pJ}_${d}`);     // Sabtu
+      piketDutyMembers.add(`${pJ}_${d + 1}`); // Minggu
     }
   }
 
-  // STEP 2: Plot On Call Standby (A) dengan Penyesuaian Khusus Tgl 1 & 2
+  // STEP 2: Plot On Call Standby (A) dengan Proteksi Jumat-Sabtu-Minggu
   for (let d = 1; d <= daysInMonth; d++) {
     // --- 1. TIM SIMRS ---
     for (let attempts = 0; attempts < simrsMembers.length; attempts++) {
       const candidateIndex = (simrsPJIdx + attempts) % simrsMembers.length;
       const candidateName = simrsMembers[candidateIndex].name;
 
-      if (!scheduleMap[candidateName][d]) {
+      // Cek apakah kandidat sedang Libur (L), Piket (P), atau dalam periode proteksi (Jumat/Sabtu/Minggu)
+      const isProtected = piketDutyMembers.has(`${candidateName}_${d}`);
+      const hasExistingStatus = scheduleMap[candidateName][d];
+
+      if (!hasExistingStatus && !isProtected) {
         scheduleMap[candidateName][d] = "A";
         simrsPJIdx = candidateIndex + 1;
         break;
@@ -107,22 +123,23 @@ export default function ScheduleMatrix() {
     }
 
     // --- 2. TIM JARINGAN ---
+    // Aturan Khusus Override Tgl 1 & 2
     if (d === 1) {
-      // OVERRIDE TANGGAL 1: Imanollah On Call
       scheduleMap["Imanollah"][d] = "A";
-      // Set posisi rotasi berikutnya agar mulai dari Andi Ardiansyah
       const idxAndi = jaringanMembers.findIndex((m) => m.name === "Andi Ardiansyah");
       jarPJIdx = idxAndi;
     } else if (d === 2) {
-      // OVERRIDE TANGGAL 2: Ivandi Shaputra On Call (Backup Libur Jumat Imanollah)
       scheduleMap["Ivandi Shaputra"][d] = "A";
     } else {
-      // ROTASI NORMAL UNTUK TANGGAL 3 KE ATAS
+      // Rotasi Normal dengan Proteksi Jumat-Sabtu-Minggu
       for (let attempts = 0; attempts < jaringanMembers.length; attempts++) {
         const candidateIndex = (jarPJIdx + attempts) % jaringanMembers.length;
         const candidateName = jaringanMembers[candidateIndex].name;
 
-        if (!scheduleMap[candidateName][d]) {
+        const isProtected = piketDutyMembers.has(`${candidateName}_${d}`);
+        const hasExistingStatus = scheduleMap[candidateName][d];
+
+        if (!hasExistingStatus && !isProtected) {
           scheduleMap[candidateName][d] = "A";
           jarPJIdx = candidateIndex + 1;
           break;
