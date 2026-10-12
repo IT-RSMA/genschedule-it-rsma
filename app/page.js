@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar, Printer, Shield, Wifi } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, Printer, Shield, Wifi, RotateCcw, Edit3 } from "lucide-react";
 
 // Data Tim SIMRS (Dipisah Pria & Wanita)
 const simrsMaleMembers = [
@@ -16,26 +16,25 @@ const simrsFemaleMembers = [
   { name: "Riskia Annisa", phone: "082341959185" },
 ];
 
-// Gabungan seluruh anggota SIMRS untuk tampilan tabel
 const simrsMembers = [...simrsFemaleMembers, ...simrsMaleMembers];
 
 // Data Tim Jaringan
 const jaringanMembers = [
   { name: "Ivandi Shaputra", phone: "0818242029" }, // Kepala Ruangan
   { name: "Imanollah", phone: "087754339509" },
-  { name: "Sahipuddin", phone: "081723376675" },
   { name: "Andi Ardiansyah", phone: "082340110248" },
+  { name: "Sahipuddin", phone: "081723376675" },
 ];
 
-// Daftar Anggota Jaringan yang mengikuti rotasi Piket Sabtu (Ivandi Dikecualikan)
 const jaringanPiketMembers = jaringanMembers.filter(
   (m) => m.name !== "Ivandi Shaputra"
 );
 
-const dayInitials = ["M", "S", "S", "R", "K", "J", "S"]; // 0: Min, 1: Sen, 2: Sel, 3: Rab, 4: Kam, 5: Jum, 6: Sab
+const dayInitials = ["M", "S", "S", "R", "K", "J", "S"];
 
 export default function ScheduleMatrix() {
   const [selectedMonth, setSelectedMonth] = useState("2026-10");
+  const [customSchedule, setCustomSchedule] = useState({});
 
   const [yearStr, monthStr] = selectedMonth.split("-");
   const year = parseInt(yearStr);
@@ -43,11 +42,10 @@ export default function ScheduleMatrix() {
 
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  // Membangun struktur data tanggal
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => {
     const dayNum = i + 1;
     const dateObj = new Date(year, month - 1, dayNum);
-    const dayOfWeek = dateObj.getDay(); // 0: Sunday, 6: Saturday
+    const dayOfWeek = dateObj.getDay();
     return {
       dayNum,
       dayOfWeek,
@@ -58,102 +56,124 @@ export default function ScheduleMatrix() {
     };
   });
 
-  // Indeks Rotasi Global
-  let simrsPiketIdx = 0;
-  let jarPiketIdx = 0;
-  let simrsPJIdx = 0;
-  let jarPJIdx = 0;
+  // Fungsi Generasi Jadwal Otomatis
+  const generateAutoSchedule = () => {
+    let simrsPiketIdx = 0;
+    let jarPiketIdx = 0;
+    let simrsPJIdx = 0;
+    let jarPJIdx = 0;
 
-  // Structure: scheduleMap[nama][tgl] = 'P' | 'L' | 'A'
-  const scheduleMap = {};
-  // Tracking siapa saja yang kena Piket Sabtu minggu itu
-  const piketDutyMembers = new Set();
+    const scheduleMap = {};
+    const piketDutyMembers = new Set();
 
-  [...simrsMembers, ...jaringanMembers].forEach((m) => {
-    scheduleMap[m.name] = {};
-  });
+    [...simrsMembers, ...jaringanMembers].forEach((m) => {
+      scheduleMap[m.name] = {};
+    });
 
-  // STEP 1: Plot Piket Sabtu & Libur Jumat Kompensasi
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateObj = new Date(year, month - 1, d);
-    const dayOfWeek = dateObj.getDay();
+    // STEP 1: Plot Piket Sabtu & Libur Jumat
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, month - 1, d);
+      const dayOfWeek = dateObj.getDay();
 
-    if (dayOfWeek === 6) { // Hari Sabtu
-      const pS = simrsMaleMembers[simrsPiketIdx % simrsMaleMembers.length].name;
-      const pJ = jaringanPiketMembers[jarPiketIdx % jaringanPiketMembers.length].name;
+      if (dayOfWeek === 6) {
+        const pS = simrsMaleMembers[simrsPiketIdx % simrsMaleMembers.length].name;
+        const pJ = jaringanPiketMembers[jarPiketIdx % jaringanPiketMembers.length].name;
 
-      simrsPiketIdx++;
-      jarPiketIdx++;
+        simrsPiketIdx++;
+        jarPiketIdx++;
 
-      scheduleMap[pS][d] = "P";
-      scheduleMap[pJ][d] = "P";
+        scheduleMap[pS][d] = "P";
+        scheduleMap[pJ][d] = "P";
 
-      if (d > 1) { // Libur Kompensasi di Hari Jumat sebelumnya
-        scheduleMap[pS][d - 1] = "L";
-        scheduleMap[pJ][d - 1] = "L";
-      }
+        if (d > 1) {
+          scheduleMap[pS][d - 1] = "L";
+          scheduleMap[pJ][d - 1] = "L";
+        }
 
-      // Catat tanggal Jumat, Sabtu, Minggu untuk diproteksi dari On Call (A)
-      piketDutyMembers.add(`${pS}_${d - 1}`); // Jumat
-      piketDutyMembers.add(`${pS}_${d}`);     // Sabtu
-      piketDutyMembers.add(`${pS}_${d + 1}`); // Minggu
+        piketDutyMembers.add(`${pS}_${d - 1}`);
+        piketDutyMembers.add(`${pS}_${d}`);
+        piketDutyMembers.add(`${pS}_${d + 1}`);
 
-      piketDutyMembers.add(`${pJ}_${d - 1}`); // Jumat
-      piketDutyMembers.add(`${pJ}_${d}`);     // Sabtu
-      piketDutyMembers.add(`${pJ}_${d + 1}`); // Minggu
-    }
-  }
-
-  // STEP 2: Plot On Call Standby (A) dengan Proteksi Jumat-Sabtu-Minggu
-  for (let d = 1; d <= daysInMonth; d++) {
-    // --- 1. TIM SIMRS ---
-    for (let attempts = 0; attempts < simrsMembers.length; attempts++) {
-      const candidateIndex = (simrsPJIdx + attempts) % simrsMembers.length;
-      const candidateName = simrsMembers[candidateIndex].name;
-
-      // Cek apakah kandidat sedang Libur (L), Piket (P), atau dalam periode proteksi (Jumat/Sabtu/Minggu)
-      const isProtected = piketDutyMembers.has(`${candidateName}_${d}`);
-      const hasExistingStatus = scheduleMap[candidateName][d];
-
-      if (!hasExistingStatus && !isProtected) {
-        scheduleMap[candidateName][d] = "A";
-        simrsPJIdx = candidateIndex + 1;
-        break;
+        piketDutyMembers.add(`${pJ}_${d - 1}`);
+        piketDutyMembers.add(`${pJ}_${d}`);
+        piketDutyMembers.add(`${pJ}_${d + 1}`);
       }
     }
 
-    // --- 2. TIM JARINGAN ---
-    // Aturan Khusus Override Tgl 1 & 2
-    if (d === 1) {
-      scheduleMap["Imanollah"][d] = "A";
-      const idxAndi = jaringanMembers.findIndex((m) => m.name === "Andi Ardiansyah");
-      jarPJIdx = idxAndi;
-    } else if (d === 2) {
-      scheduleMap["Ivandi Shaputra"][d] = "A";
-    } else {
-      // Rotasi Normal dengan Proteksi Jumat-Sabtu-Minggu
-      for (let attempts = 0; attempts < jaringanMembers.length; attempts++) {
-        const candidateIndex = (jarPJIdx + attempts) % jaringanMembers.length;
-        const candidateName = jaringanMembers[candidateIndex].name;
+    // STEP 2: Plot On Call Standby (A)
+    for (let d = 1; d <= daysInMonth; d++) {
+      // TIM SIMRS
+      for (let attempts = 0; attempts < simrsMembers.length; attempts++) {
+        const candidateIndex = (simrsPJIdx + attempts) % simrsMembers.length;
+        const candidateName = simrsMembers[candidateIndex].name;
 
         const isProtected = piketDutyMembers.has(`${candidateName}_${d}`);
         const hasExistingStatus = scheduleMap[candidateName][d];
 
         if (!hasExistingStatus && !isProtected) {
           scheduleMap[candidateName][d] = "A";
-          jarPJIdx = candidateIndex + 1;
+          simrsPJIdx = candidateIndex + 1;
           break;
         }
       }
-    }
-  }
 
-  // Menghitung Total Shift per Anggota
+      // TIM JARINGAN
+      if (d === 1) {
+        scheduleMap["Imanollah"][d] = "A";
+        const idxAndi = jaringanMembers.findIndex((m) => m.name === "Andi Ardiansyah");
+        jarPJIdx = idxAndi;
+      } else if (d === 2) {
+        scheduleMap["Ivandi Shaputra"][d] = "A";
+      } else {
+        for (let attempts = 0; attempts < jaringanMembers.length; attempts++) {
+          const candidateIndex = (jarPJIdx + attempts) % jaringanMembers.length;
+          const candidateName = jaringanMembers[candidateIndex].name;
+
+          const isProtected = piketDutyMembers.has(`${candidateName}_${d}`);
+          const hasExistingStatus = scheduleMap[candidateName][d];
+
+          if (!hasExistingStatus && !isProtected) {
+            scheduleMap[candidateName][d] = "A";
+            jarPJIdx = candidateIndex + 1;
+            break;
+          }
+        }
+      }
+    }
+
+    return scheduleMap;
+  };
+
+  // Generate ulang ketika bulan berubah
+  useEffect(() => {
+    setCustomSchedule(generateAutoSchedule());
+  }, [selectedMonth]);
+
+  // Handler untuk mengubah shift saat sel diklik (Siklus: Kosong -> A -> P -> L -> Kosong)
+  const handleCellClick = (memberName, dayNum) => {
+    const currentCode = customSchedule[memberName]?.[dayNum] || "";
+    let nextCode = "";
+
+    if (currentCode === "") nextCode = "A";
+    else if (currentCode === "A") nextCode = "P";
+    else if (currentCode === "P") nextCode = "L";
+    else nextCode = "";
+
+    setCustomSchedule((prev) => ({
+      ...prev,
+      [memberName]: {
+        ...prev[memberName],
+        [dayNum]: nextCode,
+      },
+    }));
+  };
+
+  // Hitung Total
   const getTotals = (memberName) => {
     let pCount = 0;
     let aCount = 0;
     for (let d = 1; d <= daysInMonth; d++) {
-      const code = scheduleMap[memberName][d];
+      const code = customSchedule[memberName]?.[d];
       if (code === "P") pCount++;
       if (code === "A") aCount++;
     }
@@ -162,7 +182,7 @@ export default function ScheduleMatrix() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans pb-12 print:bg-white print:pb-0">
-      {/* Navbar Upper Controls */}
+      {/* Header Controls */}
       <header className="bg-emerald-900 text-white shadow-md sticky top-0 z-50 no-print">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center space-x-3">
@@ -171,17 +191,27 @@ export default function ScheduleMatrix() {
             </div>
             <div>
               <h1 className="text-lg font-bold">Jadwal IT RSMA</h1>
-              <p className="text-xs text-emerald-200">Laporan Penjadwalan Bulanan</p>
+              <p className="text-xs text-emerald-200">Mode Interaktif: Klik Sel untuk Mengubah Shift</p>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setCustomSchedule(generateAutoSchedule())}
+              className="flex items-center space-x-1.5 bg-emerald-800 hover:bg-emerald-700 text-emerald-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
+              title="Reset ke Jadwal Otomatis"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Otomatis</span>
+            </button>
+
             <input
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-emerald-950 border border-emerald-700 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none"
             />
+
             <button
               onClick={() => window.print()}
               className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold px-4 py-2 rounded-lg transition-all text-sm shadow cursor-pointer"
@@ -194,7 +224,16 @@ export default function ScheduleMatrix() {
       </header>
 
       <main className="max-w-[98%] mx-auto py-6 print:py-0">
-        {/* Header Dokumen Laporan */}
+        {/* Banner Instruksi Edit */}
+        {/* <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-2 rounded-lg mb-3 text-xs flex items-center justify-between no-print shadow-sm">
+          <span className="flex items-center gap-2 font-medium">
+            <Edit3 className="w-4 h-4 text-emerald-700" />
+            <b>Petunjuk Edit Manual:</b> Klik pada kotak sel mana saja untuk mengganti status:
+            <span className="font-bold text-emerald-800">[Kosong] → A (On Call) → P (Piket) → L (Libur) → [Kosong]</span>
+          </span>
+        </div> */}
+
+        {/* Dokumen Header */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-emerald-200 mb-4 print:shadow-none print:border-none print:p-0 print:mb-2">
           <div className="flex justify-between items-end border-b border-emerald-800/20 pb-3 print:pb-1">
             <div>
@@ -206,7 +245,7 @@ export default function ScheduleMatrix() {
               </p>
             </div>
 
-            {/* Keterangan Legend */}
+            {/* Legend */}
             <div className="flex items-center space-x-3 text-xs print:text-[8px]">
               <span className="flex items-center gap-1 font-semibold">
                 <span className="w-5 h-5 bg-yellow-500 text-white flex items-center justify-center rounded font-bold text-[10px] print:w-3.5 print:h-3.5 print:text-[7px]">P</span>
@@ -224,7 +263,7 @@ export default function ScheduleMatrix() {
           </div>
         </div>
 
-        {/* Matriks Tabel Utama */}
+        {/* Tabel Utama */}
         <div className="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden print:border-slate-300">
           <div className="overflow-x-auto">
             <table className="w-full text-center border-collapse text-[11px] print:text-[8px]">
@@ -288,11 +327,13 @@ export default function ScheduleMatrix() {
                         </div>
                       </td>
                       {daysArray.map((d) => {
-                        const code = scheduleMap[m.name][d.dayNum];
+                        const code = customSchedule[m.name]?.[d.dayNum] || "";
                         return (
                           <td
                             key={d.dayNum}
-                            className={`p-0.5 border-r border-slate-200/80 ${d.isSunday ? "bg-rose-50/40" : ""}`}
+                            onClick={() => handleCellClick(m.name, d.dayNum)}
+                            className={`p-0.5 border-r border-slate-200/80 cursor-pointer select-none hover:bg-emerald-100/50 transition-all ${d.isSunday ? "bg-rose-50/40" : ""}`}
+                            title="Klik untuk ganti shift"
                           >
                             {code === "P" && (
                               <span className="inline-flex items-center justify-center w-5 h-5 bg-yellow-500 text-white font-bold rounded text-[10px] shadow-sm print:w-3.5 print:h-3.5 print:text-[7px]">
@@ -342,11 +383,13 @@ export default function ScheduleMatrix() {
                         </div>
                       </td>
                       {daysArray.map((d) => {
-                        const code = scheduleMap[m.name][d.dayNum];
+                        const code = customSchedule[m.name]?.[d.dayNum] || "";
                         return (
                           <td
                             key={d.dayNum}
-                            className={`p-0.5 border-r border-slate-200/80 ${d.isSunday ? "bg-rose-50/40" : ""}`}
+                            onClick={() => handleCellClick(m.name, d.dayNum)}
+                            className={`p-0.5 border-r border-slate-200/80 cursor-pointer select-none hover:bg-teal-100/50 transition-all ${d.isSunday ? "bg-rose-50/40" : ""}`}
+                            title="Klik untuk ganti shift"
                           >
                             {code === "P" && (
                               <span className="inline-flex items-center justify-center w-5 h-5 bg-yellow-500 text-white font-bold rounded text-[10px] shadow-sm print:w-3.5 print:h-3.5 print:text-[7px]">
@@ -376,7 +419,7 @@ export default function ScheduleMatrix() {
           </div>
         </div>
 
-        {/* Catatan / Keterangan Tambahan */}
+        {/* Footer Keterangan */}
         <div className="mt-4 p-3 bg-white border border-emerald-200 rounded-xl text-base text-slate-600 grid grid-cols-1 md:grid-cols-3 gap-2 print:mt-2 print:p-1.5 print:text-[8px] print:rounded-lg">
           <div><b className="text-yellow-500">P = Piket Sabtu:</b> 07:00 - 16:00 WITA</div>
           <div><b className="text-rose-700">L = Libur Jumat</b></div>
