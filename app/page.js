@@ -22,8 +22,8 @@ const simrsMembers = [...simrsFemaleMembers, ...simrsMaleMembers];
 const jaringanMembers = [
   { name: "Ivandi Shaputra", phone: "0818242029" }, // Kepala Ruangan
   { name: "Imanollah", phone: "087754339509" },
-  { name: "Andi Ardiansyah", phone: "082340110248" },
   { name: "Sahipuddin", phone: "081723376675" },
+  { name: "Andi Ardiansyah", phone: "082340110248" },
 ];
 
 const jaringanPiketMembers = jaringanMembers.filter(
@@ -191,7 +191,7 @@ export default function ScheduleMatrix() {
             </div>
             <div>
               <h1 className="text-lg font-bold">Jadwal IT RSMA</h1>
-              <p className="text-xs text-emerald-200">Mode Interaktif: Klik Sel untuk Mengubah Shift</p>
+              {/* <p className="text-xs text-emerald-200">Mode Interaktif: Klik Sel untuk Mengubah Shift</p> */}
             </div>
           </div>
 
