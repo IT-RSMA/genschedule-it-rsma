@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, Printer, Shield, Wifi, RotateCcw, Edit3 } from "lucide-react";
+import { Calendar, Printer, Shield, Wifi, RotateCcw } from "lucide-react";
 
-// Data Tim SIMRS (Dipisah Pria & Wanita)
+// ================= KONFIGURASI =================
+const ANCHOR_MONTH = "2026-10"; // bulan awal (jadwal lama) sebagai titik lanjut
+const PIKET_WEIGHT = 1; // 1 piket dianggap setara berapa kali on-call
+const NEVER = -1e9;
+
+// ================= DATA TIM =================
 const simrsMaleMembers = [
   { name: "Muhammad Athallariq Wiratama", phone: "082342134354" },
   { name: "Bagus Risqi Martono", phone: "081339668877" },
@@ -18,7 +23,6 @@ const simrsFemaleMembers = [
 
 const simrsMembers = [...simrsFemaleMembers, ...simrsMaleMembers];
 
-// Data Tim Jaringan
 const jaringanMembers = [
   { name: "Ivandi Shaputra", phone: "0818242029" }, // Kepala Ruangan
   { name: "Imanollah", phone: "087754339509" },
@@ -30,8 +34,209 @@ const jaringanPiketMembers = jaringanMembers.filter(
   (m) => m.name !== "Ivandi Shaputra"
 );
 
+const allMembers = [...simrsMembers, ...jaringanMembers];
 const dayInitials = ["M", "S", "S", "R", "K", "J", "S"];
 
+// ================= HELPER =================
+const toSerial = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+const daysIn = (y, m) => new Date(y, m, 0).getDate();
+const parseKey = (key) => {
+  const [year, month] = key.split("-").map(Number);
+  return { year, month };
+};
+const nextKey = (key) => {
+  const { year, month } = parseKey(key);
+  return month === 12
+    ? `${year + 1}-01`
+    : `${year}-${String(month + 1).padStart(2, "0")}`;
+};
+
+const emptyStats = () =>
+  Object.fromEntries(
+    allMembers.map((m) => [m.name, { p: 0, a: 0, lastP: NEVER, lastA: NEVER }])
+  );
+
+const cloneStats = (s) =>
+  Object.fromEntries(Object.entries(s).map(([k, v]) => [k, { ...v }]));
+
+// ================= JADWAL LAMA (hanya untuk ANCHOR_MONTH) =================
+const generateLegacySchedule = (year, month) => {
+  const daysInMonth = daysIn(year, month);
+  let simrsPiketIdx = 0;
+  let jarPiketIdx = 0;
+  let simrsPJIdx = 0;
+  let jarPJIdx = 0;
+
+  const scheduleMap = {};
+  const piketDutyMembers = new Set();
+  allMembers.forEach((m) => (scheduleMap[m.name] = {}));
+
+  // Piket Sabtu & Libur Jumat
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = new Date(year, month - 1, d).getDay();
+    if (dayOfWeek === 6) {
+      const pS = simrsMaleMembers[simrsPiketIdx % simrsMaleMembers.length].name;
+      const pJ =
+        jaringanPiketMembers[jarPiketIdx % jaringanPiketMembers.length].name;
+      simrsPiketIdx++;
+      jarPiketIdx++;
+
+      scheduleMap[pS][d] = "P";
+      scheduleMap[pJ][d] = "P";
+      if (d > 1) {
+        scheduleMap[pS][d - 1] = "L";
+        scheduleMap[pJ][d - 1] = "L";
+      }
+      [pS, pJ].forEach((n) =>
+        [d - 1, d, d + 1].forEach((x) => piketDutyMembers.add(`${n}_${x}`))
+      );
+    }
+  }
+
+  // On-call
+  for (let d = 1; d <= daysInMonth; d++) {
+    for (let a = 0; a < simrsMembers.length; a++) {
+      const idx = (simrsPJIdx + a) % simrsMembers.length;
+      const name = simrsMembers[idx].name;
+      if (!scheduleMap[name][d] && !piketDutyMembers.has(`${name}_${d}`)) {
+        scheduleMap[name][d] = "A";
+        simrsPJIdx = idx + 1;
+        break;
+      }
+    }
+
+    if (d === 1) {
+      scheduleMap["Imanollah"][d] = "A";
+      jarPJIdx = jaringanMembers.findIndex((m) => m.name === "Andi Ardiansyah");
+    } else if (d === 2) {
+      scheduleMap["Ivandi Shaputra"][d] = "A";
+    } else {
+      for (let a = 0; a < jaringanMembers.length; a++) {
+        const idx = (jarPJIdx + a) % jaringanMembers.length;
+        const name = jaringanMembers[idx].name;
+        if (!scheduleMap[name][d] && !piketDutyMembers.has(`${name}_${d}`)) {
+          scheduleMap[name][d] = "A";
+          jarPJIdx = idx + 1;
+          break;
+        }
+      }
+    }
+  }
+  return scheduleMap;
+};
+
+// Hitung statistik (P, A, terakhir kali) dari jadwal yang sudah jadi
+const statsFromSchedule = (schedule, year, month) => {
+  const stats = emptyStats();
+  for (let d = 1; d <= daysIn(year, month); d++) {
+    const serial = toSerial(year, month, d);
+    allMembers.forEach(({ name }) => {
+      const code = schedule[name]?.[d];
+      if (code === "P") {
+        stats[name].p++;
+        stats[name].lastP = serial;
+      }
+      if (code === "A") {
+        stats[name].a++;
+        stats[name].lastA = serial;
+      }
+    });
+  }
+  return stats;
+};
+
+// ================= JADWAL ADIL (lanjutan) =================
+const generateFairSchedule = (year, month, prevStats) => {
+  const stats = cloneStats(prevStats);
+  const days = daysIn(year, month);
+  const schedule = {};
+  allMembers.forEach((m) => (schedule[m.name] = {}));
+  const protectedDays = new Set();
+
+  const load = (name) => stats[name].a + stats[name].p * PIKET_WEIGHT;
+
+  // Piket: total piket paling sedikit, seri -> yang terakhir piket paling lama
+  const pickPiket = (pool) =>
+    [...pool].sort(
+      (a, b) =>
+        stats[a.name].p - stats[b.name].p ||
+        stats[a.name].lastP - stats[b.name].lastP
+    )[0].name;
+
+  // STEP 1: Piket Sabtu + Libur Jumat
+  for (let d = 1; d <= days; d++) {
+    if (new Date(year, month - 1, d).getDay() !== 6) continue;
+    const serial = toSerial(year, month, d);
+
+    [pickPiket(simrsMaleMembers), pickPiket(jaringanPiketMembers)].forEach(
+      (name) => {
+        schedule[name][d] = "P";
+        if (d > 1) schedule[name][d - 1] = "L";
+        stats[name].p++;
+        stats[name].lastP = serial;
+        [d - 1, d, d + 1].forEach((x) => protectedDays.add(`${name}_${x}`));
+      }
+    );
+  }
+
+  // STEP 2: On-call harian, berdasarkan beban terendah
+  for (let d = 1; d <= days; d++) {
+    const serial = toSerial(year, month, d);
+
+    const isBlocked = (name) =>
+      protectedDays.has(`${name}_${d}`) ||
+      // piket Sabtu di akhir bulan lalu -> Minggu tgl 1 tidak on-call
+      (d === 1 && serial - prevStats[name].lastP === 1) ||
+      schedule[name][d];
+
+    const pickOnCall = (pool) => {
+      const eligible = pool.filter((m) => !isBlocked(m.name));
+      if (!eligible.length) return;
+      const rested = eligible.filter((m) => serial - stats[m.name].lastA > 1);
+      const candidates = rested.length ? rested : eligible;
+      const chosen = [...candidates].sort(
+        (a, b) =>
+          load(a.name) - load(b.name) ||
+          stats[a.name].lastA - stats[b.name].lastA
+      )[0].name;
+
+      schedule[chosen][d] = "A";
+      stats[chosen].a++;
+      stats[chosen].lastA = serial;
+    };
+
+    pickOnCall(simrsMembers);
+    pickOnCall(jaringanMembers);
+  }
+
+  return { schedule, stats };
+};
+
+// Bangun jadwal berantai dari ANCHOR_MONTH sampai bulan yang dipilih
+const buildSchedule = (key) => {
+  if (!/^\d{4}-\d{2}$/.test(key)) return {};
+
+  if (key < ANCHOR_MONTH) {
+    const { year, month } = parseKey(key);
+    return generateFairSchedule(year, month, emptyStats()).schedule;
+  }
+
+  const a = parseKey(ANCHOR_MONTH);
+  let schedule = generateLegacySchedule(a.year, a.month);
+  let stats = statsFromSchedule(schedule, a.year, a.month);
+
+  let cur = ANCHOR_MONTH;
+  while (cur !== key) {
+    cur = nextKey(cur);
+    const { year, month } = parseKey(cur);
+    const r = generateFairSchedule(year, month, stats);
+    schedule = r.schedule;
+    stats = r.stats;
+  }
+  return schedule;
+};
+
+// ================= KOMPONEN =================
 export default function ScheduleMatrix() {
   const [selectedMonth, setSelectedMonth] = useState("2026-10");
   const [customSchedule, setCustomSchedule] = useState({});
@@ -56,100 +261,14 @@ export default function ScheduleMatrix() {
     };
   });
 
-  // Fungsi Generasi Jadwal Otomatis
-  const generateAutoSchedule = () => {
-    let simrsPiketIdx = 0;
-    let jarPiketIdx = 0;
-    let simrsPJIdx = 0;
-    let jarPJIdx = 0;
-
-    const scheduleMap = {};
-    const piketDutyMembers = new Set();
-
-    [...simrsMembers, ...jaringanMembers].forEach((m) => {
-      scheduleMap[m.name] = {};
-    });
-
-    // STEP 1: Plot Piket Sabtu & Libur Jumat
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateObj = new Date(year, month - 1, d);
-      const dayOfWeek = dateObj.getDay();
-
-      if (dayOfWeek === 6) {
-        const pS = simrsMaleMembers[simrsPiketIdx % simrsMaleMembers.length].name;
-        const pJ = jaringanPiketMembers[jarPiketIdx % jaringanPiketMembers.length].name;
-
-        simrsPiketIdx++;
-        jarPiketIdx++;
-
-        scheduleMap[pS][d] = "P";
-        scheduleMap[pJ][d] = "P";
-
-        if (d > 1) {
-          scheduleMap[pS][d - 1] = "L";
-          scheduleMap[pJ][d - 1] = "L";
-        }
-
-        piketDutyMembers.add(`${pS}_${d - 1}`);
-        piketDutyMembers.add(`${pS}_${d}`);
-        piketDutyMembers.add(`${pS}_${d + 1}`);
-
-        piketDutyMembers.add(`${pJ}_${d - 1}`);
-        piketDutyMembers.add(`${pJ}_${d}`);
-        piketDutyMembers.add(`${pJ}_${d + 1}`);
-      }
-    }
-
-    // STEP 2: Plot On Call Standby (A)
-    for (let d = 1; d <= daysInMonth; d++) {
-      // TIM SIMRS
-      for (let attempts = 0; attempts < simrsMembers.length; attempts++) {
-        const candidateIndex = (simrsPJIdx + attempts) % simrsMembers.length;
-        const candidateName = simrsMembers[candidateIndex].name;
-
-        const isProtected = piketDutyMembers.has(`${candidateName}_${d}`);
-        const hasExistingStatus = scheduleMap[candidateName][d];
-
-        if (!hasExistingStatus && !isProtected) {
-          scheduleMap[candidateName][d] = "A";
-          simrsPJIdx = candidateIndex + 1;
-          break;
-        }
-      }
-
-      // TIM JARINGAN
-      if (d === 1) {
-        scheduleMap["Imanollah"][d] = "A";
-        const idxAndi = jaringanMembers.findIndex((m) => m.name === "Andi Ardiansyah");
-        jarPJIdx = idxAndi;
-      } else if (d === 2) {
-        scheduleMap["Ivandi Shaputra"][d] = "A";
-      } else {
-        for (let attempts = 0; attempts < jaringanMembers.length; attempts++) {
-          const candidateIndex = (jarPJIdx + attempts) % jaringanMembers.length;
-          const candidateName = jaringanMembers[candidateIndex].name;
-
-          const isProtected = piketDutyMembers.has(`${candidateName}_${d}`);
-          const hasExistingStatus = scheduleMap[candidateName][d];
-
-          if (!hasExistingStatus && !isProtected) {
-            scheduleMap[candidateName][d] = "A";
-            jarPJIdx = candidateIndex + 1;
-            break;
-          }
-        }
-      }
-    }
-
-    return scheduleMap;
-  };
+  const generateAutoSchedule = () => buildSchedule(selectedMonth);
 
   // Generate ulang ketika bulan berubah
   useEffect(() => {
-    setCustomSchedule(generateAutoSchedule());
+    setCustomSchedule(buildSchedule(selectedMonth));
   }, [selectedMonth]);
 
-  // Handler untuk mengubah shift saat sel diklik (Siklus: Kosong -> A -> P -> L -> Kosong)
+  // Siklus klik sel: Kosong -> A -> P -> L -> Kosong
   const handleCellClick = (memberName, dayNum) => {
     const currentCode = customSchedule[memberName]?.[dayNum] || "";
     let nextCode = "";
@@ -191,7 +310,6 @@ export default function ScheduleMatrix() {
             </div>
             <div>
               <h1 className="text-lg font-bold">Jadwal IT RSMA</h1>
-              {/* <p className="text-xs text-emerald-200">Mode Interaktif: Klik Sel untuk Mengubah Shift</p> */}
             </div>
           </div>
 
@@ -224,15 +342,6 @@ export default function ScheduleMatrix() {
       </header>
 
       <main className="max-w-[98%] mx-auto py-6 print:py-0">
-        {/* Banner Instruksi Edit */}
-        {/* <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-2 rounded-lg mb-3 text-xs flex items-center justify-between no-print shadow-sm">
-          <span className="flex items-center gap-2 font-medium">
-            <Edit3 className="w-4 h-4 text-emerald-700" />
-            <b>Petunjuk Edit Manual:</b> Klik pada kotak sel mana saja untuk mengganti status:
-            <span className="font-bold text-emerald-800">[Kosong] → A (On Call) → P (Piket) → L (Libur) → [Kosong]</span>
-          </span>
-        </div> */}
-
         {/* Dokumen Header */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-emerald-200 mb-4 print:shadow-none print:border-none print:p-0 print:mb-2">
           <div className="flex justify-between items-end border-b border-emerald-800/20 pb-3 print:pb-1">
