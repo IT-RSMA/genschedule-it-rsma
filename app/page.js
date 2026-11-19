@@ -236,10 +236,37 @@ const buildSchedule = (key) => {
   return schedule;
 };
 
+// Bulan berjalan dari jam perangkat, format "YYYY-MM"
+const getCurrentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
 // ================= KOMPONEN =================
 export default function ScheduleMatrix() {
-  const [selectedMonth, setSelectedMonth] = useState("2026-10");
+  const [selectedMonth, setSelectedMonth] = useState(ANCHOR_MONTH);
+  const [todayMonth, setTodayMonth] = useState(ANCHOR_MONTH);
   const [customSchedule, setCustomSchedule] = useState({});
+
+  // Saat pertama dibuka -> langsung ke bulan sekarang
+  useEffect(() => {
+    const nowKey = getCurrentMonthKey();
+    setTodayMonth(nowKey);
+    setSelectedMonth(nowKey);
+  }, []);
+
+  // Cek tiap menit -> otomatis pindah saat bulan berganti
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const nowKey = getCurrentMonthKey();
+      if (nowKey !== todayMonth) {
+        // hanya ikut pindah kalau user sedang melihat bulan "sekarang" yang lama
+        setSelectedMonth((prev) => (prev === todayMonth ? nowKey : prev));
+        setTodayMonth(nowKey);
+      }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [todayMonth]);
 
   const [yearStr, monthStr] = selectedMonth.split("-");
   const year = parseInt(yearStr);
